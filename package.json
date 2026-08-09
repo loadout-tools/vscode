@@ -31,7 +31,7 @@
   "scripts": {
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
-    "lint": "eslint src test",
+    "lint": "tsc --noEmit && eslint src test",
     "test": "vitest run",
     "test:integration": "pnpm build && tsc -p tsconfig.it.json && node dist-it/runTests.js",
     "package": "vsce package --no-dependencies"
