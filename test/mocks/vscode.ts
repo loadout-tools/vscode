@@ -9,6 +9,7 @@ export const window = {
   showInformationMessage: async (..._a: unknown[]) => undefined,
   showWarningMessage: async (..._a: unknown[]) => undefined,
   showQuickPick: async (..._a: unknown[]) => undefined,
+  showTextDocument: async (..._a: unknown[]) => undefined,
   createOutputChannel: (_n: string) => ({ appendLine: (_l: string) => {}, show: () => {}, dispose: () => {} }),
   createWebviewPanel: (..._a: unknown[]) => ({ webview: { html: '' }, onDidDispose: (_f: () => void) => {}, dispose: () => {} }),
 };
