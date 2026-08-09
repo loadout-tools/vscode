@@ -1,19 +1,38 @@
 {
   "name": "loadout",
   "displayName": "Loadout",
-  "description": "Your personal AI-agent context, equipped automatically in every repo — for Copilot in VS Code and for Cursor.",
+  "description": "Your personal AI-agent context, equipped automatically in every repo \u2014 for Copilot in VS Code and for Cursor.",
   "publisher": "loadout-tools",
   "version": "0.1.0",
   "license": "MIT",
   "icon": "icon.png",
-  "galleryBanner": { "color": "#1a1a2e", "theme": "dark" },
-  "repository": { "type": "git", "url": "https://github.com/loadout-tools/vscode" },
+  "galleryBanner": {
+    "color": "#1a1a2e",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/loadout-tools/vscode"
+  },
   "homepage": "https://loadout.tools",
-  "engines": { "vscode": "^1.128.0" },
-  "categories": ["AI", "Other"],
-  "keywords": ["copilot", "cursor", "context", "instructions", "agents"],
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "keywords": [
+    "copilot",
+    "cursor",
+    "context",
+    "instructions",
+    "agents"
+  ],
   "main": "./dist/extension.js",
-  "activationEvents": ["onStartupFinished"],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
@@ -22,12 +41,24 @@
   },
   "contributes": {
     "commands": [
-      { "command": "loadout.openStudio", "title": "Loadout: Open Studio" },
-      { "command": "loadout.refreshNow", "title": "Loadout: Refresh Now" },
-      { "command": "loadout.openOverlay", "title": "Loadout: Open Overlay File" }
+      {
+        "command": "loadout.openStudio",
+        "title": "Loadout: Open Studio"
+      },
+      {
+        "command": "loadout.refreshNow",
+        "title": "Loadout: Refresh Now"
+      },
+      {
+        "command": "loadout.openOverlay",
+        "title": "Loadout: Open Overlay File"
+      }
     ]
   },
-  "loadout": { "cliVersion": "0.24.0", "releaseRepo": "elleryfamilia/loadout" },
+  "loadout": {
+    "cliVersion": "0.24.0",
+    "releaseRepo": "elleryfamilia/loadout"
+  },
   "scripts": {
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
@@ -39,7 +70,7 @@
   "devDependencies": {
     "@types/mocha": "^10",
     "@types/node": "^22",
-    "@types/vscode": "1.125.0",
+    "@types/vscode": "1.99.1",
     "@vscode/test-electron": "^3",
     "@vscode/vsce": "^3",
     "esbuild": "^0.24",
