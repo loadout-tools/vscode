@@ -5,21 +5,34 @@ import * as path from 'node:path';
 import { parseStudioUrl, studioHtml, openStudio } from '../src/studio';
 
 describe('parseStudioUrl', () => {
-  it('finds the served localhost url and port', () => {
-    expect(parseStudioUrl('  studio serving at http://127.0.0.1:53211 (Ctrl-C to stop)')).toEqual({
-      url: 'http://127.0.0.1:53211',
+  it('preserves the full bootstrap path and query (the token — bare root is 403)', () => {
+    expect(
+      parseStudioUrl('  studio serving at http://127.0.0.1:53211/__studio/bootstrap?token=abc123 (Ctrl-C to stop)')
+    ).toEqual({
+      url: 'http://127.0.0.1:53211/__studio/bootstrap?token=abc123',
       port: 53211,
+      pathAndQuery: '/__studio/bootstrap?token=abc123',
     });
-    expect(parseStudioUrl('  ▸ http://localhost:7777/')).toEqual({ url: 'http://localhost:7777', port: 7777 });
+    expect(parseStudioUrl('  ▸ http://localhost:7777/')).toEqual({
+      url: 'http://localhost:7777/',
+      port: 7777,
+      pathAndQuery: '/',
+    });
+    expect(parseStudioUrl('bare http://127.0.0.1:9999 url')).toEqual({
+      url: 'http://127.0.0.1:9999',
+      port: 9999,
+      pathAndQuery: '/',
+    });
     expect(parseStudioUrl('no url here')).toBeNull();
   });
 });
 
 describe('studioHtml', () => {
-  it('iframes the webview-mapped port, not the real one', () => {
-    const html = studioHtml();
-    expect(html).toContain('http://127.0.0.1:7777/');
+  it('iframes the mapped port at the bootstrap path, with a frame-src CSP', () => {
+    const html = studioHtml('/__studio/bootstrap?token=abc123');
+    expect(html).toContain('http://127.0.0.1:7777/__studio/bootstrap?token=abc123');
     expect(html).toContain('<iframe');
+    expect(html).toContain("frame-src http://127.0.0.1:7777");
   });
 });
 
