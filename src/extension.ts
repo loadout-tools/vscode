@@ -78,6 +78,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const offerSetup = async () => {
     await applyStatus({ kind: 'needs-setup' }, false);
+    // Reveal the sidebar once so brand-new users see where Loadout lives —
+    // Cursor keeps unpinned view containers in the activity-bar overflow, so
+    // without this first reveal the icon is effectively invisible there.
+    try {
+      await vscode.commands.executeCommand('loadout.overview.focus');
+    } catch {
+      /* view focus is best-effort */
+    }
     const choice = await vscode.window.showInformationMessage(
       'Set up Loadout? Your personal context, equipped automatically in every repo.',
       'Set up',

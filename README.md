@@ -29,3 +29,7 @@ When this extension opens the studio, it sets `LOADOUT_STUDIO_HOST` (`vscode` or
 
 - [loadout.tools](https://loadout.tools) — docs and guides
 - [GitHub: elleryfamilia/loadout](https://github.com/elleryfamilia/loadout) — source, issues, releases
+
+## Cursor note
+
+Cursor keeps unpinned sidebar icons in the activity bar's `…` overflow menu. If the Loadout backpack isn't visible next to the other icons, open the overflow menu, right-click **Loadout**, and pin it.
