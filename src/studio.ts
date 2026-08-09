@@ -1,57 +1,35 @@
 import { spawnLoad } from './exec';
 
-/** The stable port webview iframes use; portMapping rewrites it to the real one. */
-export const WEBVIEW_PORT = 7777;
-
 /**
  * Studio prints a bootstrap URL whose path carries the session token
  * (`/__studio/bootstrap?token=…` — it sets the auth cookie and redirects).
- * The full path+query MUST be preserved: the bare root answers 403.
+ * The full URL MUST be preserved: the bare root answers 403.
  */
 export function parseStudioUrl(line: string): { url: string; port: number; pathAndQuery: string } | null {
   const m = line.match(/(http:\/\/(?:127\.0\.0\.1|localhost):(\d+)(\/\S*)?)/);
   return m ? { url: m[1], port: Number(m[2]), pathAndQuery: m[3] ?? '/' } : null;
 }
 
-export function studioHtml(pathAndQuery: string): string {
-  const src = `http://127.0.0.1:${WEBVIEW_PORT}${pathAndQuery}`;
-  return `<!DOCTYPE html><html><head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src http://127.0.0.1:${WEBVIEW_PORT}; style-src 'unsafe-inline'">
-<style>html,body,iframe{margin:0;padding:0;height:100%;width:100%;border:0;overflow:hidden}</style></head>
-<body><iframe src="${src}" allow="clipboard-read; clipboard-write"></iframe></body></html>`;
-}
+/** How the caller displays the studio URL (Simple Browser / external browser). */
+export type ShowStudio = (url: string) => Promise<void> | void;
 
-export type StudioPanel = { webview: { html: string }; reveal?: () => void; onDidDispose?: (cb: () => void) => void };
-export type PanelFactory = (port: number) => StudioPanel;
-
-type StudioHandle = { child: ReturnType<typeof spawnLoad>; port: number; pathAndQuery: string; panel: StudioPanel | null };
-/** The live `load studio` child (if any) — module-level because globalStorage's spawn
- *  tracking is per-window, but this extension only ever wants one studio per window. */
+type StudioHandle = { child: ReturnType<typeof spawnLoad>; url: string };
+/** The live `load studio` child (if any) — one studio per window is plenty.
+ *  VS Code webviews refuse cross-origin http iframes ("domains, protocols and
+ *  ports must match"), so studio is shown via Simple Browser / the external
+ *  browser rather than embedded — the caller supplies `show`. */
 let current: StudioHandle | null = null;
 
-function attachPanel(handle: StudioHandle, panel: StudioPanel): void {
-  panel.webview.html = studioHtml(handle.pathAndQuery);
-  handle.panel = panel;
-  panel.onDidDispose?.(() => {
-    if (current === handle) current.panel = null;
-  });
-}
-
 /**
- * Spawn `load studio` headless on a free port, wait for its URL on stdout, and hand the
- * port to the panel factory (which applies portMapping). Reuses a live studio process
- * (and reveals its existing panel, or recreates one against the same port if the panel
- * was closed) instead of spawning a second one. Rejects after `timeoutMs` without a URL.
+ * Spawn `load studio` headless on a free port, wait for its tokenized URL on
+ * stdout, and hand that URL to `show`. Reuses a live studio process (re-showing
+ * its URL) instead of spawning a second one. Rejects after `timeoutMs` without
+ * a URL.
  */
-export function openStudio(bin: string, storageDir: string, createPanel: PanelFactory, timeoutMs = 10_000): Promise<void> {
+export function openStudio(bin: string, storageDir: string, show: ShowStudio, timeoutMs = 10_000): Promise<void> {
   if (current && current.child.exitCode === null) {
-    const handle = current;
-    if (handle.panel) {
-      handle.panel.reveal?.();
-    } else {
-      attachPanel(handle, createPanel(handle.port));
-    }
-    return Promise.resolve();
+    const { url } = current;
+    return Promise.resolve(show(url)).then(() => undefined);
   }
 
   return new Promise((resolve, reject) => {
@@ -73,13 +51,12 @@ export function openStudio(bin: string, storageDir: string, createPanel: PanelFa
           settled = true;
           clearTimeout(timer);
           child.stdout?.off('data', onData);
-          const handle: StudioHandle = { child, port: parsed.port, pathAndQuery: parsed.pathAndQuery, panel: null };
+          const handle: StudioHandle = { child, url: parsed.url };
           current = handle;
           child.on('exit', () => {
             if (current === handle) current = null;
           });
-          attachPanel(handle, createPanel(parsed.port));
-          resolve();
+          Promise.resolve(show(parsed.url)).then(resolve, reject);
           return;
         }
       }

@@ -4,7 +4,7 @@ import { resolveLoad } from './binary';
 import { killAll, reapOrphans } from './exec';
 import { agentForAppName, overlayPath, planFolderRefresh, refreshFolder } from './refresh';
 import { consentState, hasConfig } from './onboarding';
-import { openStudio, WEBVIEW_PORT } from './studio';
+import { openStudio } from './studio';
 import { updateStatus, type StatusState } from './status';
 
 const out = vscode.window.createOutputChannel('Loadout');
@@ -26,13 +26,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     void vscode.window.showInformationMessage('Loadout does not support this platform yet (unix only today).');
   };
 
-  const studioPanel = () => {
-    return (port: number) =>
-      vscode.window.createWebviewPanel('loadoutStudio', 'Loadout Studio', vscode.ViewColumn.One, {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        portMapping: [{ webviewPort: WEBVIEW_PORT, extensionHostPort: port }],
-      });
+  // Webviews refuse cross-origin http iframes, so studio opens in Simple
+  // Browser (an editor tab) when available; otherwise the external browser —
+  // which Cursor routes into its own built-in in-IDE browser for localhost.
+  const showStudio = async (url: string) => {
+    try {
+      await vscode.commands.executeCommand('simpleBrowser.show', url);
+    } catch {
+      await vscode.env.openExternal(vscode.Uri.parse(url));
+    }
   };
 
   const doOpenStudio = async () => {
@@ -41,7 +43,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       return;
     }
     try {
-      await openStudio(bin.path, storage, studioPanel());
+      await openStudio(bin.path, storage, showStudio);
       // Studio's onboarding writes the config; on ANY pre-consent studio open (not just
       // the notification's "Set up" button — the status bar / palette re-entry points
       // land here too), poll for it, then go ambient.
