@@ -19,6 +19,15 @@ export function shouldSkipRefresh(folder: string, now: number = Date.now()): boo
   }
 }
 
+/** Spec 2(b): only refresh folders that are a git repo (worktrees use a `.git` file, not a dir). */
+export function isGitRepo(folder: string): boolean {
+  try {
+    return fs.existsSync(path.join(folder, '.git'));
+  } catch {
+    return false;
+  }
+}
+
 export function overlayPath(folder: string, agent: string): string {
   return agent === 'cursor'
     ? path.join(folder, '.cursor', 'rules', 'loadout.mdc')
@@ -33,6 +42,27 @@ export function readProfile(folder: string, agent: string): string | null {
   } catch {
     return null;
   }
+}
+
+export type FolderPlan =
+  | { action: 'skip'; reason: 'not-git' }
+  | { action: 'skip'; reason: 'fresh-stamp'; status: { kind: 'equipped'; profile: string } | { kind: 'no-profile' } }
+  | { action: 'refresh' };
+
+/**
+ * Decide what to do with one workspace folder, without doing it — kept pure and
+ * exported so the skip-status and force-bypass behaviors are unit-testable
+ * without wiring a real extension host.
+ *
+ * `force` (Refresh Now) bypasses the hook-stamp skip; the git gate is never bypassed.
+ */
+export function planFolderRefresh(folder: string, agent: string, force: boolean, now: number = Date.now()): FolderPlan {
+  if (!isGitRepo(folder)) return { action: 'skip', reason: 'not-git' };
+  if (!force && shouldSkipRefresh(folder, now)) {
+    const profile = readProfile(folder, agent);
+    return { action: 'skip', reason: 'fresh-stamp', status: profile ? { kind: 'equipped', profile } : { kind: 'no-profile' } };
+  }
+  return { action: 'refresh' };
 }
 
 /** Adopt-and-refresh one workspace folder. `--agent` both adopts on first open and refreshes after. */

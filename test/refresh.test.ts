@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { agentForAppName, shouldSkipRefresh, refreshFolder, overlayPath, readProfile } from '../src/refresh';
+import { agentForAppName, shouldSkipRefresh, refreshFolder, overlayPath, readProfile, isGitRepo, planFolderRefresh } from '../src/refresh';
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'lo-refresh-'));
 
@@ -38,6 +38,65 @@ describe('overlayPath / readProfile', () => {
     fs.writeFileSync(overlayPath(root, 'copilot'), '---\napplyTo: "**"\n---\nheader\n_Active profile: **rust**_ · x\n');
     expect(readProfile(root, 'copilot')).toBe('rust');
     expect(readProfile(root, 'cursor')).toBeNull();
+  });
+});
+
+describe('isGitRepo', () => {
+  it('is true for a .git directory, true for a .git file (worktrees), false otherwise', () => {
+    const dirRepo = tmp();
+    fs.mkdirSync(path.join(dirRepo, '.git'));
+    expect(isGitRepo(dirRepo)).toBe(true);
+
+    const worktree = tmp();
+    fs.writeFileSync(path.join(worktree, '.git'), 'gitdir: /elsewhere/.git/worktrees/x\n');
+    expect(isGitRepo(worktree)).toBe(true);
+
+    const plain = tmp();
+    expect(isGitRepo(plain)).toBe(false);
+  });
+});
+
+describe('planFolderRefresh', () => {
+  it('skips non-git folders regardless of force', () => {
+    const root = tmp();
+    expect(planFolderRefresh(root, 'copilot', false)).toEqual({ action: 'skip', reason: 'not-git' });
+    expect(planFolderRefresh(root, 'copilot', true)).toEqual({ action: 'skip', reason: 'not-git' });
+  });
+
+  it('on a fresh hook stamp, skips but derives status from the overlay (equipped)', () => {
+    const root = tmp();
+    fs.mkdirSync(path.join(root, '.git'));
+    fs.mkdirSync(path.join(root, '.loadout', 'cache'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.loadout', 'cache', 'hook-stamp'), '');
+    fs.mkdirSync(path.join(root, '.github', 'instructions'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.github', 'instructions', 'loadout.instructions.md'), '_Active profile: **rust**_\n');
+    expect(planFolderRefresh(root, 'copilot', false)).toEqual({
+      action: 'skip',
+      reason: 'fresh-stamp',
+      status: { kind: 'equipped', profile: 'rust' },
+    });
+  });
+
+  it('on a fresh hook stamp with no overlay yet, skips with no-profile status', () => {
+    const root = tmp();
+    fs.mkdirSync(path.join(root, '.git'));
+    fs.mkdirSync(path.join(root, '.loadout', 'cache'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.loadout', 'cache', 'hook-stamp'), '');
+    expect(planFolderRefresh(root, 'copilot', false)).toEqual({ action: 'skip', reason: 'fresh-stamp', status: { kind: 'no-profile' } });
+  });
+
+  it('force bypasses the fresh hook stamp and proceeds to refresh', () => {
+    const root = tmp();
+    fs.mkdirSync(path.join(root, '.git'));
+    fs.mkdirSync(path.join(root, '.loadout', 'cache'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.loadout', 'cache', 'hook-stamp'), '');
+    expect(planFolderRefresh(root, 'copilot', true)).toEqual({ action: 'refresh' });
+  });
+
+  it('refreshes a git folder with no (or a stale) hook stamp', () => {
+    const root = tmp();
+    fs.mkdirSync(path.join(root, '.git'));
+    expect(planFolderRefresh(root, 'copilot', false)).toEqual({ action: 'refresh' });
   });
 });
 
