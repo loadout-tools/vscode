@@ -55,7 +55,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       return;
     }
     try {
-      await openStudio(bin.path, storage, showStudio);
+      // Forward-compat signal to studio for IDE-embedding detection (see studio.ts).
+      await openStudio(bin.path, storage, showStudio, agent === 'cursor' ? 'cursor' : 'vscode');
       // Studio's onboarding writes the config; on ANY pre-consent studio open (not just
       // the notification's "Set up" button — the status bar / palette re-entry points
       // land here too), poll for it, then go ambient.

@@ -20,6 +20,16 @@ describe('exec', () => {
     expect(JSON.parse(fs.readFileSync(pidFilePath(storage), 'utf8'))).toEqual([]);
   });
 
+  it('passes extraEnv through to the spawned child, merged over process.env', async () => {
+    const storage = tmp();
+    const bin = path.join(storage, 'fake-load');
+    const envOut = path.join(storage, 'env-out');
+    fs.writeFileSync(bin, `#!/bin/sh\necho "$LOADOUT_STUDIO_HOST" > "${envOut}"\nexit 0\n`);
+    fs.chmodSync(bin, 0o755);
+    await runLoad(bin, [], undefined, storage, { LOADOUT_STUDIO_HOST: 'vscode' });
+    expect(fs.readFileSync(envOut, 'utf8').trim()).toBe('vscode');
+  });
+
   it('reapOrphans tolerates a stale record whose owner is also dead', () => {
     const storage = tmp();
     // owner 999998 and pid 999999 are both assumed-dead pids, matching the

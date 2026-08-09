@@ -25,15 +25,22 @@ let current: StudioHandle | null = null;
  * stdout, and hand that URL to `show`. Reuses a live studio process (re-showing
  * its URL) instead of spawning a second one. Rejects after `timeoutMs` without
  * a URL.
+ *
+ * `ide` is passed to the child as `LOADOUT_STUDIO_HOST` — a forward-compat signal
+ * so studio can later detect and customize itself for IDE embedding. The CLI
+ * ignores unknown env vars today. Only applies to a freshly spawned process — a
+ * reused live studio keeps whatever env it started with.
  */
-export function openStudio(bin: string, storageDir: string, show: ShowStudio, timeoutMs = 10_000): Promise<void> {
+export function openStudio(bin: string, storageDir: string, show: ShowStudio, ide: 'vscode' | 'cursor', timeoutMs = 10_000): Promise<void> {
   if (current && current.child.exitCode === null) {
     const { url } = current;
     return Promise.resolve(show(url)).then(() => undefined);
   }
 
   return new Promise((resolve, reject) => {
-    const child = spawnLoad(bin, ['studio', '--no-open', '--port', '0', '--idle-timeout', '2h'], undefined, storageDir);
+    const child = spawnLoad(bin, ['studio', '--no-open', '--port', '0', '--idle-timeout', '2h'], undefined, storageDir, {
+      LOADOUT_STUDIO_HOST: ide,
+    });
     const timer = setTimeout(() => {
       settled = true;
       child.stdout?.off('data', onData);

@@ -25,9 +25,18 @@ function writePids(storageDir: string, pids: PidRecord[]): void {
   fs.writeFileSync(pidFilePath(storageDir), JSON.stringify(pids));
 }
 
-/** Spawn a tracked `load` child. Caller owns stdout/stderr wiring. */
-export function spawnLoad(bin: string, args: string[], cwd: string | undefined, storageDir: string): ChildProcess {
-  const child = spawn(bin, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+/** Spawn a tracked `load` child. Caller owns stdout/stderr wiring.
+ *  `extraEnv` is merged over `process.env` for the child — e.g. `LOADOUT_STUDIO_HOST`,
+ *  a forward-compat signal the CLI ignores today (see studio.ts). */
+export function spawnLoad(
+  bin: string,
+  args: string[],
+  cwd: string | undefined,
+  storageDir: string,
+  extraEnv?: Record<string, string>
+): ChildProcess {
+  const env = extraEnv ? { ...process.env, ...extraEnv } : process.env;
+  const child = spawn(bin, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], env });
   live.add(child);
   if (child.pid) writePids(storageDir, [...readPids(storageDir), { pid: child.pid, bin, owner: process.pid }]);
   child.on('exit', () => {
@@ -38,9 +47,15 @@ export function spawnLoad(bin: string, args: string[], cwd: string | undefined, 
 }
 
 /** Run to completion, capturing output. */
-export function runLoad(bin: string, args: string[], cwd: string | undefined, storageDir: string): Promise<{ code: number; stdout: string; stderr: string }> {
+export function runLoad(
+  bin: string,
+  args: string[],
+  cwd: string | undefined,
+  storageDir: string,
+  extraEnv?: Record<string, string>
+): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const child = spawnLoad(bin, args, cwd, storageDir);
+    const child = spawnLoad(bin, args, cwd, storageDir, extraEnv);
     let stdout = '';
     let stderr = '';
     child.stdout?.on('data', (d: Buffer) => (stdout += d.toString()));

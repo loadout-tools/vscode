@@ -21,6 +21,10 @@ If you have `load` installed via `curl | bash` or a package manager, that CLI al
 - Linux (x64, arm64)
 - Windows: coming with loadout's Windows support
 
+## For the studio
+
+When this extension opens the studio, it sets `LOADOUT_STUDIO_HOST` (`vscode` or `cursor`) in the child process's environment. `load` ignores this today — it's a forward-compat signal so studio can later detect it's running inside an IDE and customize itself for embedding.
+
 ## Links
 
 - [loadout.tools](https://loadout.tools) — docs and guides
