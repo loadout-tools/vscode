@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dist-it/
 bin/
 *.vsix
 .vscode-test/

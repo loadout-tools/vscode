@@ -1,0 +1,10 @@
+#!/bin/sh
+# Records every invocation; fakes a successful refresh with an overlay.
+echo "$@" >> "${LOADOUT_STUB_LOG:?}"
+case "$1" in
+  refresh)
+    mkdir -p .github/instructions
+    printf -- '---\napplyTo: x\n---\n_Active profile: **stub**_\n' > .github/instructions/loadout.instructions.md
+    ;;
+esac
+exit 0
