@@ -1,0 +1,47 @@
+{
+  "name": "loadout",
+  "displayName": "Loadout",
+  "description": "Your personal AI-agent context, equipped automatically in every repo — for Copilot in VS Code and for Cursor.",
+  "publisher": "loadout-tools",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/loadout-tools/vscode" },
+  "homepage": "https://loadout.tools",
+  "engines": { "vscode": "^1.128.0" },
+  "categories": ["AI", "Other"],
+  "keywords": ["copilot", "cursor", "context", "instructions", "agents"],
+  "main": "./dist/extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Loadout only refreshes context in trusted workspaces."
+    }
+  },
+  "contributes": {
+    "commands": [
+      { "command": "loadout.openStudio", "title": "Loadout: Open Studio" },
+      { "command": "loadout.refreshNow", "title": "Loadout: Refresh Now" },
+      { "command": "loadout.openOverlay", "title": "Loadout: Open Overlay File" }
+    ]
+  },
+  "loadout": { "cliVersion": "0.24.0", "releaseRepo": "elleryfamilia/loadout" },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "lint": "eslint src test",
+    "test": "vitest run",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/vscode": "1.125.0",
+    "@vscode/vsce": "^3",
+    "esbuild": "^0.24",
+    "eslint": "^9",
+    "ovsx": "^0.10",
+    "typescript": "^5.6",
+    "typescript-eslint": "^8",
+    "vitest": "^3"
+  }
+}
