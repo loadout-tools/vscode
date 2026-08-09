@@ -30,7 +30,7 @@ jobs:
             pnpm vsce package --no-dependencies --target ${{ matrix.target }} -o loadout-${{ matrix.target }}.vsix
           fi
       - uses: actions/upload-artifact@v4
-        with: { name: vsix-${{ matrix.target }}, path: '*.vsix' }
+        with: { name: 'vsix-${{ matrix.target }}', path: '*.vsix' }
   publish:
     needs: package
     runs-on: ubuntu-latest
