@@ -2,7 +2,10 @@ import { spawn, type ChildProcess, execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-type PidRecord = { pid: number; bin: string };
+/** `owner` is the pid of the extension-host process that spawned this child — it's how
+ *  reapOrphans tells "this window's own leftover" from "another window's still-live child";
+ *  globalStorage (and its pid file) is shared across every VS Code/Cursor window. */
+type PidRecord = { pid: number; bin: string; owner: number };
 const live = new Set<ChildProcess>();
 
 export function pidFilePath(storageDir: string): string {
@@ -26,7 +29,7 @@ function writePids(storageDir: string, pids: PidRecord[]): void {
 export function spawnLoad(bin: string, args: string[], cwd: string | undefined, storageDir: string): ChildProcess {
   const child = spawn(bin, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
   live.add(child);
-  if (child.pid) writePids(storageDir, [...readPids(storageDir), { pid: child.pid, bin }]);
+  if (child.pid) writePids(storageDir, [...readPids(storageDir), { pid: child.pid, bin, owner: process.pid }]);
   child.on('exit', () => {
     live.delete(child);
     writePids(storageDir, readPids(storageDir).filter((r) => r.pid !== child.pid));
@@ -59,21 +62,49 @@ export function killAll(): void {
   live.clear();
 }
 
-/** Kill leftovers from a previous session (Cursor's Reload Window orphans). Only pids whose command still matches the recorded binary. */
+/** True if `pid` is a live process we could plausibly signal (or belongs to another user — either way, not ours to reap). */
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === 'EPERM';
+  }
+}
+
+function commandMatches(pid: number, bin: string): boolean {
+  try {
+    const cmd = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8');
+    return cmd.includes(bin);
+  } catch {
+    // macOS has no /proc: fall back to `ps`.
+    try {
+      const out = execFileSync('ps', ['-o', 'command=', '-p', String(pid)], { encoding: 'utf8' });
+      return out.includes(bin);
+    } catch {
+      return false; // process gone or unreadable
+    }
+  }
+}
+
+/**
+ * Kill leftovers from a previous session of THIS window (Cursor's Reload Window orphans).
+ * globalStorage — and its pid file — is shared across every open window, so a record can
+ * just as easily be another window's still-live child. Only reap a record when its owning
+ * extension-host process is gone; records whose owner is alive are left alone (and kept in
+ * the file) since they're not ours to touch.
+ */
 export function reapOrphans(storageDir: string): void {
   const survivors: PidRecord[] = [];
   for (const rec of readPids(storageDir)) {
+    if (isProcessAlive(rec.owner)) {
+      survivors.push(rec); // another window's live owner — its child may still be live too
+      continue;
+    }
     try {
-      const cmd = fs.readFileSync(`/proc/${rec.pid}/cmdline`, 'utf8');
-      if (cmd.includes(rec.bin)) process.kill(rec.pid);
+      if (commandMatches(rec.pid, rec.bin)) process.kill(rec.pid);
     } catch {
-      // macOS has no /proc: fall back to a signal-0 liveness probe + kill guarded by bin match via ps.
-      try {
-        const out = execFileSync('ps', ['-o', 'command=', '-p', String(rec.pid)], { encoding: 'utf8' });
-        if (out.includes(rec.bin)) process.kill(rec.pid);
-      } catch {
-        /* dead or unreadable — drop the record */
-      }
+      /* already gone */
     }
   }
   writePids(storageDir, survivors);
