@@ -11,7 +11,12 @@ export const window = {
   showQuickPick: async (..._a: unknown[]) => undefined,
   showTextDocument: async (..._a: unknown[]) => undefined,
   createOutputChannel: (_n: string) => ({ appendLine: (_l: string) => {}, show: () => {}, dispose: () => {} }),
-  createWebviewPanel: (..._a: unknown[]) => ({ webview: { html: '' }, onDidDispose: (_f: () => void) => {}, dispose: () => {} }),
+  createWebviewPanel: (..._a: unknown[]) => ({
+    webview: { html: '' },
+    reveal: () => {},
+    onDidDispose: (_f: () => void) => {},
+    dispose: () => {},
+  }),
 };
 export const workspace = {
   workspaceFolders: [] as { uri: { fsPath: string } }[],

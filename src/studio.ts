@@ -13,17 +13,46 @@ export function studioHtml(): string {
 <body><iframe src="http://127.0.0.1:${WEBVIEW_PORT}/" allow="clipboard-read; clipboard-write"></iframe></body></html>`;
 }
 
-export type PanelFactory = (port: number) => { webview: { html: string } };
+export type StudioPanel = { webview: { html: string }; reveal?: () => void; onDidDispose?: (cb: () => void) => void };
+export type PanelFactory = (port: number) => StudioPanel;
+
+type StudioHandle = { child: ReturnType<typeof spawnLoad>; port: number; panel: StudioPanel | null };
+/** The live `load studio` child (if any) — module-level because globalStorage's spawn
+ *  tracking is per-window, but this extension only ever wants one studio per window. */
+let current: StudioHandle | null = null;
+
+function attachPanel(handle: StudioHandle, panel: StudioPanel): void {
+  panel.webview.html = studioHtml();
+  handle.panel = panel;
+  panel.onDidDispose?.(() => {
+    if (current === handle) current.panel = null;
+  });
+}
 
 /**
- * Spawn `load studio` headless on a free port, wait for its URL on stdout,
- * and hand the port to the panel factory (which applies portMapping).
- * Rejects after 10s without a URL.
+ * Spawn `load studio` headless on a free port, wait for its URL on stdout, and hand the
+ * port to the panel factory (which applies portMapping). Reuses a live studio process
+ * (and reveals its existing panel, or recreates one against the same port if the panel
+ * was closed) instead of spawning a second one. Rejects after `timeoutMs` without a URL.
  */
-export function openStudio(bin: string, storageDir: string, createPanel: PanelFactory): Promise<void> {
+export function openStudio(bin: string, storageDir: string, createPanel: PanelFactory, timeoutMs = 10_000): Promise<void> {
+  if (current && current.child.exitCode === null) {
+    const handle = current;
+    if (handle.panel) {
+      handle.panel.reveal?.();
+    } else {
+      attachPanel(handle, createPanel(handle.port));
+    }
+    return Promise.resolve();
+  }
+
   return new Promise((resolve, reject) => {
     const child = spawnLoad(bin, ['studio', '--no-open', '--port', '0', '--idle-timeout', '2h'], undefined, storageDir);
-    const timer = setTimeout(() => reject(new Error('studio did not report a URL within 10s')), 10_000);
+    const timer = setTimeout(() => {
+      settled = true;
+      child.stdout?.off('data', onData);
+      reject(new Error(`studio did not report a URL within ${timeoutMs}ms`));
+    }, timeoutMs);
     let buf = '';
     let settled = false;
     const onData = (d: Buffer) => {
@@ -36,8 +65,12 @@ export function openStudio(bin: string, storageDir: string, createPanel: PanelFa
           settled = true;
           clearTimeout(timer);
           child.stdout?.off('data', onData);
-          const panel = createPanel(parsed.port);
-          panel.webview.html = studioHtml();
+          const handle: StudioHandle = { child, port: parsed.port, panel: null };
+          current = handle;
+          child.on('exit', () => {
+            if (current === handle) current = null;
+          });
+          attachPanel(handle, createPanel(parsed.port));
           resolve();
           return;
         }
