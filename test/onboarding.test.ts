@@ -37,6 +37,9 @@ describe('consentState', () => {
 
   it('no config and no recorded consent = needs-setup', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lo-cfg-'));
-    expect(consentState(mem(), { XDG_CONFIG_HOME: dir })).toBe('needs-setup');
+    const gs = mem();
+    expect(consentState(gs, { XDG_CONFIG_HOME: dir })).toBe('needs-setup');
+    expect(fs.existsSync(path.join(dir, 'loadout', 'config.toml'))).toBe(false);
+    expect(gs.get('loadout.consent')).toBeUndefined();
   });
 });

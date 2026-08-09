@@ -25,22 +25,30 @@ export function openStudio(bin: string, storageDir: string, createPanel: PanelFa
     const child = spawnLoad(bin, ['studio', '--no-open', '--port', '0', '--idle-timeout', '2h'], undefined, storageDir);
     const timer = setTimeout(() => reject(new Error('studio did not report a URL within 10s')), 10_000);
     let buf = '';
-    child.stdout?.on('data', (d: Buffer) => {
+    let settled = false;
+    const onData = (d: Buffer) => {
       buf += d.toString();
-      for (const line of buf.split('\n')) {
+      const lines = buf.split('\n');
+      buf = lines.pop() ?? ''; // keep the incomplete tail for the next chunk
+      for (const line of lines) {
         const parsed = parseStudioUrl(line);
-        if (parsed) {
+        if (parsed && !settled) {
+          settled = true;
           clearTimeout(timer);
+          child.stdout?.off('data', onData);
           const panel = createPanel(parsed.port);
           panel.webview.html = studioHtml();
           resolve();
           return;
         }
       }
-    });
+    };
+    child.stdout?.on('data', onData);
     child.on('exit', (code) => {
-      clearTimeout(timer);
-      reject(new Error(`studio exited early (code ${code})`));
+      if (!settled) {
+        clearTimeout(timer);
+        reject(new Error(`studio exited early (code ${code})`));
+      }
     });
   });
 }

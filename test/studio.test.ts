@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { parseStudioUrl, studioHtml } from '../src/studio';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { parseStudioUrl, studioHtml, openStudio } from '../src/studio';
 
 describe('parseStudioUrl', () => {
   it('finds the served localhost url and port', () => {
@@ -17,5 +20,21 @@ describe('studioHtml', () => {
     const html = studioHtml();
     expect(html).toContain('http://127.0.0.1:7777/');
     expect(html).toContain('<iframe');
+  });
+});
+
+describe('openStudio', () => {
+  it('creates exactly one panel despite later stdout', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lo-studio-'));
+    const bin = path.join(dir, 'fake-load');
+    fs.writeFileSync(bin, '#!/bin/sh\necho "serving at http://127.0.0.1:45678"\nsleep 0.2\necho "GET / 200"\nsleep 0.3\n');
+    fs.chmodSync(bin, 0o755);
+    let panels = 0;
+    await openStudio(bin, dir, () => {
+      panels += 1;
+      return { webview: { html: '' } };
+    });
+    await new Promise((r) => setTimeout(r, 700)); // let the extra output arrive
+    expect(panels).toBe(1);
   });
 });
