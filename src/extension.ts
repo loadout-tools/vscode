@@ -6,6 +6,7 @@ import { agentForAppName, overlayPath, planFolderRefresh, refreshFolder } from '
 import { consentState, hasConfig } from './onboarding';
 import { openStudio } from './studio';
 import { updateStatus, type StatusState } from './status';
+import { provider as treeProvider, refreshTree, setAgent as setTreeAgent, setAmbient as setTreeAmbient } from './tree';
 
 const out = vscode.window.createOutputChannel('Loadout');
 let item: vscode.StatusBarItem;
@@ -21,6 +22,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const bin = resolveLoad(context.extensionUri.fsPath);
   const agent = agentForAppName(vscode.env.appName);
+  setTreeAgent(agent);
+
+  /** Keeps the `loadout.ambient` context key (drives `viewsWelcome`) and the tree's
+   *  own copy of that flag in sync with every status-bar update, then re-queries
+   *  the tree so folder/action nodes appear or the welcome CTA shows immediately. */
+  const applyStatus = async (state: StatusState, ambient: boolean) => {
+    updateStatus(item, state);
+    await vscode.commands.executeCommand('setContext', 'loadout.ambient', ambient);
+    setTreeAmbient(ambient);
+    refreshTree();
+  };
 
   const showUnsupported = async () => {
     void vscode.window.showInformationMessage('Loadout does not support this platform yet (unix only today).');
@@ -64,7 +76,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
 
   const offerSetup = async () => {
-    updateStatus(item, { kind: 'needs-setup' });
+    await applyStatus({ kind: 'needs-setup' }, false);
     const choice = await vscode.window.showInformationMessage(
       'Set up Loadout? Your personal context, equipped automatically in every repo.',
       'Set up',
@@ -93,10 +105,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       out.appendLine(`refresh ${root}: ok=${r.ok}${r.log ? `\n${r.log}` : ''}`);
       last = !r.ok ? { kind: 'error' } : r.profile ? { kind: 'equipped', profile: r.profile } : { kind: 'no-profile' };
     }
-    updateStatus(item, last);
+    await applyStatus(last, true);
   };
 
   context.subscriptions.push(
+    vscode.window.registerTreeDataProvider('loadout.overview', treeProvider),
     vscode.commands.registerCommand('loadout.openStudio', doOpenStudio),
     vscode.commands.registerCommand('loadout.refreshNow', async () => {
       if (!bin) {
@@ -133,12 +146,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       if (pick === 'Refresh Now') await vscode.commands.executeCommand('loadout.refreshNow');
       if (pick === 'Open Overlay File') await vscode.commands.executeCommand('loadout.openOverlay');
     }),
-    vscode.workspace.onDidChangeWorkspaceFolders(() => void refreshAll()),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      refreshTree();
+      void refreshAll();
+    }),
     vscode.workspace.onDidGrantWorkspaceTrust(() => void refreshAll())
   );
 
   if (!bin) {
-    updateStatus(item, { kind: 'unsupported' });
+    await applyStatus({ kind: 'unsupported' }, false);
     // Fires once ever, not on every activation — activation happens on every window/reload.
     if (context.globalState.get(UNSUPPORTED_NOTICE_KEY) !== true) {
       await context.globalState.update(UNSUPPORTED_NOTICE_KEY, true);
@@ -151,7 +167,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (context.globalState.get(SETUP_DISMISSED_KEY) === true) {
       // Already declined once — the status-bar "set up" item is the re-entry point,
       // not another notification.
-      updateStatus(item, { kind: 'needs-setup' });
+      await applyStatus({ kind: 'needs-setup' }, false);
     } else {
       await offerSetup();
     }

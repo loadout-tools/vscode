@@ -53,6 +53,31 @@
         "command": "loadout.openOverlay",
         "title": "Loadout: Open Overlay File"
       }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "loadout",
+          "title": "Loadout",
+          "icon": "media/loadout-mono.svg"
+        }
+      ]
+    },
+    "views": {
+      "loadout": [
+        {
+          "id": "loadout.overview",
+          "name": "Overview",
+          "icon": "media/loadout-mono.svg"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "loadout.overview",
+        "contents": "Your personal AI-agent context, equipped automatically in every repo.\n[Set up Loadout](command:loadout.openStudio)\nNothing is written until you complete setup.",
+        "when": "!loadout.ambient"
+      }
     ]
   },
   "loadout": {

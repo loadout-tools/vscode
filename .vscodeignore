@@ -1,6 +1,7 @@
 **
 !dist/**
 !bin/**
+!media/**
 !icon.png
 !README.md
 !LICENSE

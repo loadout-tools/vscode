@@ -17,15 +17,45 @@ export const window = {
     onDidDispose: (_f: () => void) => {},
     dispose: () => {},
   }),
+  registerTreeDataProvider: (_id: string, _provider: unknown) => ({ dispose: () => {} }),
 };
 export const workspace = {
-  workspaceFolders: [] as { uri: { fsPath: string } }[],
+  workspaceFolders: [] as { uri: { fsPath: string }; name?: string }[],
   isTrusted: true,
   onDidChangeWorkspaceFolders: (_f: unknown) => ({ dispose: () => {} }),
   onDidGrantWorkspaceTrust: (_f: unknown) => ({ dispose: () => {} }),
 };
-export const commands = { registerCommand: (_id: string, _fn: unknown) => ({ dispose: () => {} }), executeCommand: async (_id: string) => {} };
+/** setContext calls executeCommand records, keyed by context key — lets tests assert wiring. */
+export const contexts: Record<string, unknown> = {};
+export const commands = {
+  registerCommand: (_id: string, _fn: unknown) => ({ dispose: () => {} }),
+  executeCommand: async (id: string, ...args: unknown[]) => {
+    if (id === 'setContext' && typeof args[0] === 'string') contexts[args[0]] = args[1];
+  },
+};
 export const env = { appName: 'Visual Studio Code' };
 export const StatusBarAlignment = { Left: 1, Right: 2 };
 export const ViewColumn = { One: 1 };
+export const TreeItemCollapsibleState = { None: 0, Collapsed: 1, Expanded: 2 };
 export class Uri { static file(p: string) { return { fsPath: p }; } }
+export class ThemeIcon { constructor(public id: string) {} }
+export class TreeItem {
+  label?: string;
+  collapsibleState?: number;
+  iconPath?: unknown;
+  command?: { command: string; title: string; arguments?: unknown[] };
+  constructor(label?: string, collapsibleState?: number) {
+    this.label = label;
+    this.collapsibleState = collapsibleState;
+  }
+}
+export class EventEmitter<T> {
+  private listeners: ((e: T) => void)[] = [];
+  event = (listener: (e: T) => void) => {
+    this.listeners.push(listener);
+    return { dispose: () => { this.listeners = this.listeners.filter((l) => l !== listener); } };
+  };
+  fire(data: T): void {
+    for (const l of this.listeners) l(data);
+  }
+}
