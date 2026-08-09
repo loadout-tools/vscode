@@ -1,0 +1,53 @@
+name: publish
+on:
+  workflow_dispatch:
+    inputs:
+      registries:
+        description: 'both | marketplace | openvsx | package-only'
+        default: 'both'
+jobs:
+  package:
+    runs-on: macos-latest # codesign for darwin targets; linux binaries need no signing
+    strategy:
+      matrix:
+        target: [darwin-arm64, darwin-x64, linux-x64, linux-arm64, universal]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 11 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: bundle CLI
+        if: matrix.target != 'universal'
+        run: node scripts/fetch-cli.mjs ${{ matrix.target }}
+      - name: package
+        run: |
+          if [ "${{ matrix.target }}" = "universal" ]; then
+            pnpm vsce package --no-dependencies -o loadout-universal.vsix
+          else
+            pnpm vsce package --no-dependencies --target ${{ matrix.target }} -o loadout-${{ matrix.target }}.vsix
+          fi
+      - uses: actions/upload-artifact@v4
+        with: { name: vsix-${{ matrix.target }}, path: '*.vsix' }
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    if: inputs.registries != 'package-only'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 11 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with: { path: vsix, merge-multiple: true }
+      - name: publish to VS Code Marketplace (Entra OIDC)
+        if: inputs.registries == 'both' || inputs.registries == 'marketplace'
+        run: for f in vsix/*.vsix; do pnpm vsce publish --azure-credential --packagePath "$f"; done
+      - name: publish to Open VSX
+        if: inputs.registries == 'both' || inputs.registries == 'openvsx'
+        env: { OVSX_PAT: '${{ secrets.OVSX_PAT }}' }
+        run: for f in vsix/*.vsix; do pnpm ovsx publish "$f" -p "$OVSX_PAT"; done
