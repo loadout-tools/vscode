@@ -2,12 +2,12 @@
 
 Loadout brings your personal AI-agent context into every repo you open—automatically equipped in Copilot Chat and Cursor. Your `load` CLI manages the context; this extension opens the studio and triggers refreshes.
 
-Context lives in your local `~/.config/loadout/config.toml` and your repo's optional `.loadout/` directory. Loadout reads both, merges them, and writes a `.loadout-context.md` file that your AI tools consume on every request.
+Context lives in your local `~/.config/loadout/config.toml`. For each repo, loadout renders a gitignored overlay file your AI tools read on every request — `.github/instructions/loadout.instructions.md` for Copilot Chat in VS Code, `.cursor/rules/loadout.mdc` for Cursor ("Loadout: Open Overlay File" shows you the one in use).
 
 ## How it works
 
 1. **Install the extension** from the marketplace, then restart VS Code or Cursor.
-2. **Set up your context** via the Loadout Studio panel (opens on first run). Create a profile, add your scripts and capabilities, and choose which repos will use it.
+2. **Set up your context** — on first run the extension offers setup and, when you accept, opens the Loadout Studio panel. Nothing is written until you say yes.
 3. **Open any repo**—Loadout detects your profile and refreshes context automatically.
 4. **Copilot Chat or Cursor reads it**—both tools pick up the context on every request, so your AI tools always know your stack, conventions, and personal guidance.
 
