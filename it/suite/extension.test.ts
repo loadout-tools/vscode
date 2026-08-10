@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 
 suite('loadout activation', () => {
   test('refresh ran via the stub with the copilot agent', async () => {
-    await vscode.extensions.getExtension('loadout-tools.loadout')?.activate();
+    await vscode.extensions.getExtension('loadout-tools.loadout-context')?.activate();
     await vscode.commands.executeCommand('loadout.refreshNow');
     const log = fs.readFileSync(process.env.LOADOUT_STUB_LOG!, 'utf8');
     assert.match(log, /refresh --agent copilot/);
