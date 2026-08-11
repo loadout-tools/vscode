@@ -107,4 +107,25 @@ describe('externalStudioUrl', () => {
     });
     expect(mapped).toBe(url);
   });
+
+  it('logs when mapping throws, so a fallback that later 403s leaves a trace', async () => {
+    const url = 'http://127.0.0.1:5309/__studio/bootstrap?token=abc';
+    const logged: string[] = [];
+    const mapped = await externalStudioUrl(
+      url,
+      async () => {
+        throw new Error('no remote');
+      },
+      (m) => logged.push(m)
+    );
+    expect(mapped).toBe(url);
+    expect(logged).toHaveLength(1);
+    expect(logged[0]).toContain('no remote');
+  });
+
+  it('does not log on success', async () => {
+    const logged: string[] = [];
+    await externalStudioUrl('http://127.0.0.1:5309/', async (u) => u, (m) => logged.push(m));
+    expect(logged).toHaveLength(0);
+  });
 });
