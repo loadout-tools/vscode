@@ -110,8 +110,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       return;
     }
     try {
+      // The CLI derives everything repo-scoped from its own cwd, so studio needs a real
+      // workspace folder here, not the extension host's cwd (see studio.ts).
+      const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
       // Forward-compat signal to studio for IDE-embedding detection (see studio.ts).
-      await openStudio(bin.path, storage, showStudio, agent === 'cursor' ? 'cursor' : 'vscode');
+      await openStudio(bin.path, cwd, storage, showStudio, agent === 'cursor' ? 'cursor' : 'vscode');
       // Studio's onboarding writes the config; on ANY pre-consent studio open (not just
       // the notification's "Set up" button — the status bar / palette re-entry points
       // land here too), poll for it, then go ambient.
