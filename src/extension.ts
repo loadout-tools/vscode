@@ -5,7 +5,7 @@ import { killAll, reapOrphans } from './exec';
 import { agentForAppName, overlayPath, planFolderRefresh, refreshFolder } from './refresh';
 import { consentState, hasConfig } from './onboarding';
 import { platformAction, WSL_EXTENSION_ID, WSL_REOPEN_COMMAND } from './platform';
-import { openStudio } from './studio';
+import { externalStudioUrl, openStudio } from './studio';
 import { updateStatus, type StatusState } from './status';
 import { provider as treeProvider, refreshTree, setAgent as setTreeAgent, setAmbient as setTreeAmbient } from './tree';
 
@@ -78,10 +78,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Browser (an editor tab) when available; otherwise the external browser —
   // which Cursor routes into its own built-in in-IDE browser for localhost.
   const showStudio = async (url: string) => {
+    const external = await externalStudioUrl(url, async (u) =>
+      (await vscode.env.asExternalUri(vscode.Uri.parse(u))).toString()
+    );
     try {
-      await vscode.commands.executeCommand('simpleBrowser.show', url);
+      await vscode.commands.executeCommand('simpleBrowser.show', external);
     } catch {
-      await vscode.env.openExternal(vscode.Uri.parse(url));
+      await vscode.env.openExternal(vscode.Uri.parse(external));
     }
   };
 
