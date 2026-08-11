@@ -1,7 +1,7 @@
 {
   "name": "loadout-context",
   "displayName": "Loadout: AI Agent Context",
-  "description": "Your personal AI-agent context, equipped automatically in every repo \u2014 for Copilot in VS Code and for Cursor. Requires macOS or Linux.",
+  "description": "Your personal AI-agent context, equipped automatically in every repo \u2014 for Copilot in VS Code and for Cursor. Requires macOS, Linux, or Windows with WSL2.",
   "publisher": "loadout-tools",
   "version": "0.1.1",
   "license": "MIT",
@@ -30,6 +30,7 @@
     "agents"
   ],
   "main": "./dist/extension.js",
+  "extensionKind": ["workspace"],
   "activationEvents": [
     "onStartupFinished"
   ],

@@ -4,6 +4,7 @@ import { resolveLoad } from './binary';
 import { killAll, reapOrphans } from './exec';
 import { agentForAppName, overlayPath, planFolderRefresh, refreshFolder } from './refresh';
 import { consentState, hasConfig } from './onboarding';
+import { platformAction, WSL_EXTENSION_ID, WSL_REOPEN_COMMAND } from './platform';
 import { openStudio } from './studio';
 import { updateStatus, type StatusState } from './status';
 import { provider as treeProvider, refreshTree, setAgent as setTreeAgent, setAmbient as setTreeAmbient } from './tree';
@@ -34,8 +35,43 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     refreshTree();
   };
 
+  /** What to do about a missing `load`, decided once per activation. */
+  const action = platformAction({
+    hasBinary: bin !== null,
+    platform: process.platform,
+    remoteName: vscode.env.remoteName,
+    wslExtensionInstalled: vscode.extensions.getExtension(WSL_EXTENSION_ID) !== undefined,
+  });
+
+  /**
+   * Called from every entry point that needs a binary. On Windows this is not a
+   * dead end: the extension and its bundled linux `load` both work once the
+   * window is reopened in WSL, so offer exactly that.
+   */
   const showUnsupported = async () => {
-    void vscode.window.showInformationMessage('Loadout does not support this platform yet (unix only today).');
+    if (action.kind !== 'offer-wsl') {
+      void vscode.window.showInformationMessage(
+        'Loadout does not support this platform yet (macOS and Linux only).'
+      );
+      return;
+    }
+    const choice = await vscode.window.showInformationMessage(
+      'Loadout runs inside WSL on Windows. Reopen this folder in WSL to set it up.',
+      'Reopen in WSL',
+      'Not now'
+    );
+    if (choice !== 'Reopen in WSL') return;
+    try {
+      if (action.needsWslExtension) {
+        await vscode.commands.executeCommand('workbench.extensions.installExtension', WSL_EXTENSION_ID);
+      }
+      await vscode.commands.executeCommand(WSL_REOPEN_COMMAND);
+    } catch (e) {
+      out.appendLine(`reopen in wsl: ${String(e)}`);
+      void vscode.window.showErrorMessage(
+        'Could not reopen in WSL. Install the "WSL" extension, then run "WSL: Reopen Folder in WSL" from the Command Palette.'
+      );
+    }
   };
 
   // Webviews refuse cross-origin http iframes, so studio opens in Simple
