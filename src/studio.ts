@@ -10,6 +10,29 @@ export function parseStudioUrl(line: string): { url: string; port: number; pathA
   return m ? { url: m[1], port: Number(m[2]), pathAndQuery: m[3] ?? '/' } : null;
 }
 
+/**
+ * Map studio's loopback URL to one the *client* can reach.
+ *
+ * In a remote window (WSL, SSH, Codespaces) the Simple Browser webview runs on
+ * the client while `load studio` binds 127.0.0.1 inside the remote, so the raw
+ * URL is wrong there. `vscode.env.asExternalUri` sets up the port forward and
+ * hands back a reachable URL; locally it is the identity.
+ *
+ * The bootstrap path and its `token` query MUST survive the mapping — the bare
+ * root answers 403 (see `parseStudioUrl`). Any failure falls back to the
+ * original URL, which is exactly today's behaviour.
+ */
+export async function externalStudioUrl(
+  url: string,
+  asExternalUri: (u: string) => Promise<string>
+): Promise<string> {
+  try {
+    return await asExternalUri(url);
+  } catch {
+    return url;
+  }
+}
+
 /** How the caller displays the studio URL (Simple Browser / external browser). */
 export type ShowStudio = (url: string) => Promise<void> | void;
 

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { parseStudioUrl, openStudio } from '../src/studio';
+import { parseStudioUrl, openStudio, externalStudioUrl } from '../src/studio';
 
 describe('parseStudioUrl', () => {
   it('preserves the full bootstrap path and query (the token — bare root is 403)', () => {
@@ -86,5 +86,25 @@ describe('openStudio', () => {
     await openStudio(bin, dir, () => {}, 'vscode');
     expect(fs.readFileSync(envOut, 'utf8').trim()).toBe('vscode');
     await new Promise((r) => setTimeout(r, 300)); // let the stub fully exit before the next test file runs
+  });
+});
+
+describe('externalStudioUrl', () => {
+  it('passes the URL through asExternalUri, preserving path and query', async () => {
+    const seen: string[] = [];
+    const mapped = await externalStudioUrl('http://127.0.0.1:5309/__studio/bootstrap?token=abc', async (u) => {
+      seen.push(u);
+      return 'https://forwarded.example/__studio/bootstrap?token=abc';
+    });
+    expect(seen).toEqual(['http://127.0.0.1:5309/__studio/bootstrap?token=abc']);
+    expect(mapped).toBe('https://forwarded.example/__studio/bootstrap?token=abc');
+  });
+
+  it('falls back to the original URL when mapping throws', async () => {
+    const url = 'http://127.0.0.1:5309/__studio/bootstrap?token=abc';
+    const mapped = await externalStudioUrl(url, async () => {
+      throw new Error('no remote');
+    });
+    expect(mapped).toBe(url);
   });
 });
