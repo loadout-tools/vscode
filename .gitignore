@@ -4,3 +4,4 @@ dist-it/
 bin/
 *.vsix
 .vscode-test/
+.superpowers/
