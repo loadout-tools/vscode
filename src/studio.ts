@@ -53,19 +53,32 @@ let current: StudioHandle | null = null;
  * its URL) instead of spawning a second one. Rejects after `timeoutMs` without
  * a URL.
  *
+ * `cwd` is the workspace folder studio should treat as its repo — the CLI derives
+ * everything repo-scoped (config layers, context detection, its cache directory)
+ * from its own working directory, so this must be a real folder, not left to
+ * inherit the extension host's cwd (which is `/` on macOS). Pass `undefined` only
+ * when no workspace folder is open, where the CLI's own fallback is correct.
+ *
  * `ide` is passed to the child as `LOADOUT_STUDIO_HOST` — a forward-compat signal
  * so studio can later detect and customize itself for IDE embedding. The CLI
  * ignores unknown env vars today. Only applies to a freshly spawned process — a
- * reused live studio keeps whatever env it started with.
+ * reused live studio keeps whatever cwd/env it started with.
  */
-export function openStudio(bin: string, storageDir: string, show: ShowStudio, ide: 'vscode' | 'cursor', timeoutMs = 10_000): Promise<void> {
+export function openStudio(
+  bin: string,
+  cwd: string | undefined,
+  storageDir: string,
+  show: ShowStudio,
+  ide: 'vscode' | 'cursor',
+  timeoutMs = 10_000
+): Promise<void> {
   if (current && current.child.exitCode === null) {
     const { url } = current;
     return Promise.resolve(show(url)).then(() => undefined);
   }
 
   return new Promise((resolve, reject) => {
-    const child = spawnLoad(bin, ['studio', '--no-open', '--port', '0', '--idle-timeout', '2h'], undefined, storageDir, {
+    const child = spawnLoad(bin, ['studio', '--no-open', '--port', '0', '--idle-timeout', '2h'], cwd, storageDir, {
       LOADOUT_STUDIO_HOST: ide,
     });
     const timer = setTimeout(() => {

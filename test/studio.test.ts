@@ -37,6 +37,7 @@ describe('openStudio', () => {
     const urls: string[] = [];
     await openStudio(
       bin,
+      undefined,
       dir,
       (url) => {
         shows += 1;
@@ -56,8 +57,8 @@ describe('openStudio', () => {
     fs.chmodSync(bin, 0o755);
     const urls: string[] = [];
     const show = (url: string) => void urls.push(url);
-    await openStudio(bin, dir, show, 'vscode');
-    await openStudio(bin, dir, show, 'vscode'); // process from the first call is still alive
+    await openStudio(bin, undefined, dir, show, 'vscode');
+    await openStudio(bin, undefined, dir, show, 'vscode'); // process from the first call is still alive
     expect(urls).toHaveLength(2);
     expect(urls[1]).toBe(urls[0]);
     await new Promise((r) => setTimeout(r, 500)); // let the stub exit before the next test runs
@@ -69,7 +70,7 @@ describe('openStudio', () => {
     fs.writeFileSync(bin, '#!/bin/sh\nsleep 0.2\necho "serving at http://127.0.0.1:45682"\nsleep 0.2\n');
     fs.chmodSync(bin, 0o755);
     let shows = 0;
-    await expect(openStudio(bin, dir, () => void (shows += 1), 'vscode', 100)).rejects.toThrow(/100ms/);
+    await expect(openStudio(bin, undefined, dir, () => void (shows += 1), 'vscode', 100)).rejects.toThrow(/100ms/);
     await new Promise((r) => setTimeout(r, 400)); // let the late URL line arrive after the reject
     expect(shows).toBe(0);
   });
@@ -83,9 +84,32 @@ describe('openStudio', () => {
       `#!/bin/sh\necho "$LOADOUT_STUDIO_HOST" > "${envOut}"\necho "serving at http://127.0.0.1:45690"\nsleep 0.2\n`
     );
     fs.chmodSync(bin, 0o755);
-    await openStudio(bin, dir, () => {}, 'vscode');
+    await openStudio(bin, undefined, dir, () => {}, 'vscode');
     expect(fs.readFileSync(envOut, 'utf8').trim()).toBe('vscode');
     await new Promise((r) => setTimeout(r, 300)); // let the stub fully exit before the next test file runs
+  });
+
+  it('spawns the child in the given workspace folder', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lo-studio-'));
+    const wsRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lo-ws-'));
+    const bin = path.join(dir, 'fake-load');
+    const cwdOut = path.join(dir, 'cwd-out');
+    fs.writeFileSync(bin, `#!/bin/sh\npwd > "${cwdOut}"\necho "serving at http://127.0.0.1:45691"\nsleep 0.2\n`);
+    fs.chmodSync(bin, 0o755);
+    await openStudio(bin, wsRoot, dir, () => {}, 'vscode');
+    expect(fs.realpathSync(fs.readFileSync(cwdOut, 'utf8').trim())).toBe(fs.realpathSync(wsRoot));
+    await new Promise((r) => setTimeout(r, 300)); // let the stub fully exit before the next test runs
+  });
+
+  it('spawns the child with no explicit cwd when no workspace folder is given (inherits the caller)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lo-studio-'));
+    const bin = path.join(dir, 'fake-load');
+    const cwdOut = path.join(dir, 'cwd-out');
+    fs.writeFileSync(bin, `#!/bin/sh\npwd > "${cwdOut}"\necho "serving at http://127.0.0.1:45692"\nsleep 0.2\n`);
+    fs.chmodSync(bin, 0o755);
+    await openStudio(bin, undefined, dir, () => {}, 'vscode');
+    expect(fs.realpathSync(fs.readFileSync(cwdOut, 'utf8').trim())).toBe(fs.realpathSync(process.cwd()));
+    await new Promise((r) => setTimeout(r, 300)); // let the stub fully exit before the next test runs
   });
 });
 
