@@ -18,6 +18,10 @@ describe('updateStatus', () => {
     expect(i.text).toContain('unavailable');
     updateStatus(i as never, { kind: 'needs-wsl' });
     expect(i.text).toContain('needs WSL');
-    expect(i.tooltip).toContain('WSL');
+    // True on both the VS Code (offer-wsl) and Cursor (wsl-manual) paths, so it
+    // must not promise an automatic reopen — only Cursor's dead end got fixed
+    // if this also holds for the message clicking it actually leads to.
+    expect(i.tooltip).toBe('Loadout runs inside WSL on Windows. Click for setup steps.');
+    expect(i.tooltip).not.toMatch(/click to reopen/i);
   });
 });

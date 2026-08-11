@@ -32,7 +32,7 @@ export function updateStatus(item: vscode.StatusBarItem, state: StatusState): vo
       break;
     case 'needs-wsl':
       item.text = '$(layers) loadout: needs WSL';
-      item.tooltip = 'Loadout runs inside WSL on Windows. Click to reopen.';
+      item.tooltip = 'Loadout runs inside WSL on Windows. Click for setup steps.';
       break;
   }
   item.command = 'loadout.menu';

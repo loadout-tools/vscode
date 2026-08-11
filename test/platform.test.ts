@@ -32,6 +32,15 @@ describe('platformAction', () => {
     });
   });
 
+  it('is unsupported on a Windows SSH remote with no binary', () => {
+    // A Windows *SSH* remote host still reports platform 'win32' (the remote
+    // machine is Windows), but it is not a local Windows window — "Reopen in
+    // WSL" has no meaning for a window that is already remote over SSH.
+    expect(platformAction({ ...base, platform: 'win32', remoteName: 'ssh-remote' })).toEqual({
+      kind: 'unsupported',
+    });
+  });
+
   it('is unsupported on a non-Windows platform with no binary', () => {
     expect(platformAction({ ...base, platform: 'darwin' })).toEqual({ kind: 'unsupported' });
     expect(platformAction({ ...base, platform: 'linux' })).toEqual({ kind: 'unsupported' });
