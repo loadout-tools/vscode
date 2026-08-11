@@ -52,9 +52,15 @@ export const TreeItemCollapsibleState = { None: 0, Collapsed: 1, Expanded: 2 };
 function uriToString(this: { fsPath: string }): string {
   return this.fsPath;
 }
+/** Real `vscode.Uri#toString()` percent-encodes `=` and `&` unless called as
+ *  `toString(true)` — models that so a bug like the studio bootstrap token
+ *  getting mangled (C1) can fail a test instead of passing silently. */
+function parsedUriToString(this: { fsPath: string }, skipEncoding?: boolean): string {
+  return skipEncoding ? this.fsPath : this.fsPath.replace(/=/g, '%3D').replace(/&/g, '%26');
+}
 export class Uri {
   static file(p: string) { return { fsPath: p, toString: uriToString }; }
-  static parse(s: string) { return { fsPath: s, toString: uriToString }; }
+  static parse(s: string) { return { fsPath: s, toString: parsedUriToString }; }
 }
 export class ThemeIcon { constructor(public id: string) {} }
 export class TreeItem {

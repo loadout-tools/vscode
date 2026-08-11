@@ -20,15 +20,19 @@ export function parseStudioUrl(line: string): { url: string; port: number; pathA
  *
  * The bootstrap path and its `token` query MUST survive the mapping — the bare
  * root answers 403 (see `parseStudioUrl`). Any failure falls back to the
- * original URL, which is exactly today's behaviour.
+ * original URL, which is exactly today's behaviour; `log` (if given) records
+ * that the fallback happened, since a mapping failure here can otherwise
+ * surface only as a silent 403 in the browser.
  */
 export async function externalStudioUrl(
   url: string,
-  asExternalUri: (u: string) => Promise<string>
+  asExternalUri: (u: string) => Promise<string>,
+  log?: (m: string) => void
 ): Promise<string> {
   try {
     return await asExternalUri(url);
-  } catch {
+  } catch (e) {
+    log?.(`asExternalUri failed, falling back to the original studio URL: ${String(e)}`);
     return url;
   }
 }

@@ -2,6 +2,7 @@ import type * as vscode from 'vscode';
 
 export type StatusState =
   | { kind: 'unsupported' }
+  | { kind: 'needs-wsl' }
   | { kind: 'needs-setup' }
   | { kind: 'equipped'; profile: string }
   | { kind: 'no-profile' }
@@ -28,6 +29,10 @@ export function updateStatus(item: vscode.StatusBarItem, state: StatusState): vo
     case 'unsupported':
       item.text = '$(layers) loadout: unavailable';
       item.tooltip = 'Loadout does not support this platform yet.';
+      break;
+    case 'needs-wsl':
+      item.text = '$(layers) loadout: needs WSL';
+      item.tooltip = 'Loadout runs inside WSL on Windows. Click to reopen.';
       break;
   }
   item.command = 'loadout.menu';

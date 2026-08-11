@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { platformAction } from '../src/platform';
 
-const base = { hasBinary: false, platform: 'linux', remoteName: undefined, wslExtensionInstalled: false };
+const base = { hasBinary: false, platform: 'linux', remoteName: undefined, wslExtensionInstalled: false, isCursor: false };
 
 describe('platformAction', () => {
   it('is ok whenever the binary resolved, on any platform', () => {
@@ -24,9 +24,10 @@ describe('platformAction', () => {
   });
 
   it('is unsupported inside a WSL remote with no binary — reopening would not help', () => {
-    // Already in the remote and still no `load` means the linux VSIX failed to
-    // install, which "Reopen in WSL" cannot fix.
-    expect(platformAction({ ...base, platform: 'win32', remoteName: 'wsl' })).toEqual({
+    // A real WSL remote extension host reports platform 'linux' (the remote is
+    // a Linux box), not 'win32'. Already in the remote and still no `load`
+    // means the linux VSIX failed to install, which "Reopen in WSL" cannot fix.
+    expect(platformAction({ ...base, platform: 'linux', remoteName: 'wsl' })).toEqual({
       kind: 'unsupported',
     });
   });
@@ -34,5 +35,21 @@ describe('platformAction', () => {
   it('is unsupported on a non-Windows platform with no binary', () => {
     expect(platformAction({ ...base, platform: 'darwin' })).toEqual({ kind: 'unsupported' });
     expect(platformAction({ ...base, platform: 'linux' })).toEqual({ kind: 'unsupported' });
+  });
+
+  it('asks for manual WSL setup in Cursor, since it cannot install Remote-WSL to reopen', () => {
+    expect(platformAction({ ...base, platform: 'win32', isCursor: true })).toEqual({
+      kind: 'wsl-manual',
+    });
+    // wslExtensionInstalled is irrelevant here — Cursor never offers the automatic path.
+    expect(platformAction({ ...base, platform: 'win32', isCursor: true, wslExtensionInstalled: true })).toEqual({
+      kind: 'wsl-manual',
+    });
+  });
+
+  it('is unsupported inside a WSL remote in Cursor too', () => {
+    expect(platformAction({ ...base, platform: 'linux', remoteName: 'wsl', isCursor: true })).toEqual({
+      kind: 'unsupported',
+    });
   });
 });

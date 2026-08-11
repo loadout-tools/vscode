@@ -15,6 +15,7 @@ export const WSL_REOPEN_COMMAND = 'remote-wsl.reopenInWSL';
 export type PlatformAction =
   | { kind: 'ok' }
   | { kind: 'offer-wsl'; needsWslExtension: boolean }
+  | { kind: 'wsl-manual' }
   | { kind: 'unsupported' };
 
 export interface PlatformInput {
@@ -25,6 +26,9 @@ export interface PlatformInput {
   /** `vscode.env.remoteName` — undefined in a local window, 'wsl' in a WSL remote. */
   remoteName: string | undefined;
   wslExtensionInstalled: boolean;
+  /** Cursor cannot install Microsoft's Remote-WSL extension, so it cannot offer
+   *  an automatic reopen — see `wsl-manual` below. */
+  isCursor: boolean;
 }
 
 export function platformAction(input: PlatformInput): PlatformAction {
@@ -32,6 +36,7 @@ export function platformAction(input: PlatformInput): PlatformAction {
   // Only a *local* Windows window can be moved into WSL. Inside the remote
   // already, a missing binary is a packaging failure, not a placement problem.
   if (input.platform === 'win32' && input.remoteName === undefined) {
+    if (input.isCursor) return { kind: 'wsl-manual' };
     return { kind: 'offer-wsl', needsWslExtension: !input.wslExtensionInstalled };
   }
   return { kind: 'unsupported' };

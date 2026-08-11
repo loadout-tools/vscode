@@ -41,22 +41,30 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     platform: process.platform,
     remoteName: vscode.env.remoteName,
     wslExtensionInstalled: vscode.extensions.getExtension(WSL_EXTENSION_ID) !== undefined,
+    isCursor: agent === 'cursor',
   });
 
   /**
    * Called from every entry point that needs a binary. On Windows this is not a
    * dead end: the extension and its bundled linux `load` both work once the
-   * window is reopened in WSL, so offer exactly that.
+   * window is reopened in WSL, so offer exactly that — except in Cursor, which
+   * cannot install Microsoft's Remote-WSL extension to do the reopen for us.
    */
   const showUnsupported = async () => {
+    if (action.kind === 'wsl-manual') {
+      void vscode.window.showInformationMessage(
+        'Loadout runs inside WSL on Windows. Open this folder in a WSL window, then install Loadout there.'
+      );
+      return;
+    }
     if (action.kind !== 'offer-wsl') {
       void vscode.window.showInformationMessage(
-        'Loadout does not support this platform yet (macOS and Linux only).'
+        'Loadout could not find the `load` binary. Install it from loadout.tools, or check the Loadout output channel for details.'
       );
       return;
     }
     const choice = await vscode.window.showInformationMessage(
-      'Loadout runs inside WSL on Windows. Reopen this folder in WSL to set it up.',
+      'Loadout runs inside WSL on Windows. Reopen this folder in WSL, then install Loadout there (Extensions view → Install in WSL).',
       'Reopen in WSL',
       'Not now'
     );
@@ -78,13 +86,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Browser (an editor tab) when available; otherwise the external browser —
   // which Cursor routes into its own built-in in-IDE browser for localhost.
   const showStudio = async (url: string) => {
-    const external = await externalStudioUrl(url, async (u) =>
-      (await vscode.env.asExternalUri(vscode.Uri.parse(u))).toString()
+    const external = await externalStudioUrl(
+      url,
+      // toString(true) skips percent-encoding: the bootstrap URL's `token=`
+      // query must survive literally, or studio's `=`-split parser sees a
+      // key named `token%3Dabc` with no value and answers 403.
+      async (u) => (await vscode.env.asExternalUri(vscode.Uri.parse(u))).toString(true),
+      (m) => out.appendLine(m)
     );
     try {
       await vscode.commands.executeCommand('simpleBrowser.show', external);
     } catch {
-      await vscode.env.openExternal(vscode.Uri.parse(external));
+      // `external` has already been through asExternalUri; openExternal maps
+      // its argument again, so passing `external` here would double-map it
+      // and forward a port nothing is listening on. Give it the original.
+      await vscode.env.openExternal(vscode.Uri.parse(url));
     }
   };
 
@@ -202,11 +218,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   if (!bin) {
-    await applyStatus({ kind: 'unsupported' }, false);
+    await applyStatus(action.kind === 'unsupported' ? { kind: 'unsupported' } : { kind: 'needs-wsl' }, false);
     // Fires once ever, not on every activation — activation happens on every window/reload.
     if (context.globalState.get(UNSUPPORTED_NOTICE_KEY) !== true) {
       await context.globalState.update(UNSUPPORTED_NOTICE_KEY, true);
-      await showUnsupported();
+      // Not awaited: this notification has buttons, so its promise only
+      // resolves when the user clicks or dismisses it. Awaiting here would
+      // leave activate() — and the extension's "activating" state — pending
+      // until they do.
+      void showUnsupported();
     }
     return;
   }

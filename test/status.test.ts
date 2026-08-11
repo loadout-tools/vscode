@@ -16,5 +16,8 @@ describe('updateStatus', () => {
     expect(i.text).toContain('$(warning)');
     updateStatus(i as never, { kind: 'unsupported' });
     expect(i.text).toContain('unavailable');
+    updateStatus(i as never, { kind: 'needs-wsl' });
+    expect(i.text).toContain('needs WSL');
+    expect(i.tooltip).toContain('WSL');
   });
 });
