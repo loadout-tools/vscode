@@ -2,7 +2,7 @@
 
 Loadout brings your personal AI-agent context into every repo you open—automatically equipped in Copilot Chat and Cursor. Your `load` CLI manages the context; this extension opens the studio and triggers refreshes.
 
-> **macOS and Linux only today.** Loadout's CLI is unix-only; Windows support is planned and this extension ships with it when it lands.
+> **Windows support is through WSL2.** Open your folder in a WSL window and the extension runs inside WSL, where the bundled `load` binary works unmodified. On a local Windows window the extension offers to reopen the folder in WSL for you.
 
 Context lives in your local `~/.config/loadout/config.toml`. For each repo, loadout renders a gitignored overlay file your AI tools read on every request — `.github/instructions/loadout.instructions.md` for Copilot Chat in VS Code, `.cursor/rules/loadout.mdc` for Cursor ("Loadout: Open Overlay File" shows you the one in use).
 
@@ -15,13 +15,13 @@ Context lives in your local `~/.config/loadout/config.toml`. For each repo, load
 
 ## Your `load` install wins
 
-If you have `load` installed via `curl | bash` or a package manager, that CLI always takes precedence—the extension never updates it. The bundled binary (macOS/Linux only) is a fallback for fresh installs.
+If you have `load` installed via `curl | bash` or a package manager, that CLI always takes precedence—the extension never updates it. The bundled binary (a Linux build, used as-is inside WSL) is a fallback for fresh installs.
 
 ## Platform support
 
 - macOS (arm64, x64)
 - Linux (x64, arm64)
-- Windows: coming with loadout's Windows support
+- Windows, via WSL2
 
 ## For the studio
 

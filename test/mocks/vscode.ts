@@ -33,11 +33,29 @@ export const commands = {
     if (id === 'setContext' && typeof args[0] === 'string') contexts[args[0]] = args[1];
   },
 };
-export const env = { appName: 'Visual Studio Code' };
+export const env = {
+  appName: 'Visual Studio Code',
+  remoteName: undefined as string | undefined,
+  openExternal: async (_u: unknown) => true,
+  /** Identity by default; tests that care about port forwarding override it. */
+  asExternalUri: async (u: unknown) => u,
+};
+export const extensions = {
+  installed: [] as string[],
+  getExtension: (id: string) => (extensions.installed.includes(id) ? { id } : undefined),
+};
 export const StatusBarAlignment = { Left: 1, Right: 2 };
 export const ViewColumn = { One: 1 };
 export const TreeItemCollapsibleState = { None: 0, Collapsed: 1, Expanded: 2 };
-export class Uri { static file(p: string) { return { fsPath: p }; } }
+/** Shared (not a fresh closure per call) so two separately-built Uris with the
+ *  same fsPath still pass `toEqual` — see e.g. tree.test.ts's command assertions. */
+function uriToString(this: { fsPath: string }): string {
+  return this.fsPath;
+}
+export class Uri {
+  static file(p: string) { return { fsPath: p, toString: uriToString }; }
+  static parse(s: string) { return { fsPath: s, toString: uriToString }; }
+}
 export class ThemeIcon { constructor(public id: string) {} }
 export class TreeItem {
   label?: string;
