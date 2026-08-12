@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { parseStudioUrl, openStudio, externalStudioUrl } from '../src/studio';
+import { parseStudioUrl, openStudio, externalStudioUrl, resetForTests } from '../src/studio';
 
 describe('parseStudioUrl', () => {
   it('preserves the full bootstrap path and query (the token — bare root is 403)', () => {
@@ -28,6 +28,17 @@ describe('parseStudioUrl', () => {
 });
 
 describe('openStudio', () => {
+  // `current` (the live-studio handle openStudio reuses) is module state shared
+  // across every test in this file. Left alone, a test that ends while its child
+  // is still alive leaks that handle into the next test, which then silently
+  // reuses it instead of spawning — so a later assertion about a freshly spawned
+  // child (its cwd, its env, its stdout) finds nothing there. Reset deterministically
+  // by waiting for the real `exit` event rather than a fixed delay, so every test
+  // starts from `current === null` regardless of machine load.
+  afterEach(async () => {
+    await resetForTests();
+  });
+
   it('creates exactly one panel despite later stdout', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lo-studio-'));
     const bin = path.join(dir, 'fake-load');
@@ -61,7 +72,6 @@ describe('openStudio', () => {
     await openStudio(bin, undefined, dir, show, 'vscode'); // process from the first call is still alive
     expect(urls).toHaveLength(2);
     expect(urls[1]).toBe(urls[0]);
-    await new Promise((r) => setTimeout(r, 500)); // let the stub exit before the next test runs
   });
 
   it('settles on timeout, detaching stdout so a late URL is ignored and nothing is shown', async () => {
@@ -86,7 +96,6 @@ describe('openStudio', () => {
     fs.chmodSync(bin, 0o755);
     await openStudio(bin, undefined, dir, () => {}, 'vscode');
     expect(fs.readFileSync(envOut, 'utf8').trim()).toBe('vscode');
-    await new Promise((r) => setTimeout(r, 300)); // let the stub fully exit before the next test file runs
   });
 
   it('spawns the child in the given workspace folder', async () => {
@@ -98,7 +107,6 @@ describe('openStudio', () => {
     fs.chmodSync(bin, 0o755);
     await openStudio(bin, wsRoot, dir, () => {}, 'vscode');
     expect(fs.realpathSync(fs.readFileSync(cwdOut, 'utf8').trim())).toBe(fs.realpathSync(wsRoot));
-    await new Promise((r) => setTimeout(r, 300)); // let the stub fully exit before the next test runs
   });
 
   it('spawns the child with no explicit cwd when no workspace folder is given (inherits the caller)', async () => {
@@ -109,7 +117,6 @@ describe('openStudio', () => {
     fs.chmodSync(bin, 0o755);
     await openStudio(bin, undefined, dir, () => {}, 'vscode');
     expect(fs.realpathSync(fs.readFileSync(cwdOut, 'utf8').trim())).toBe(fs.realpathSync(process.cwd()));
-    await new Promise((r) => setTimeout(r, 300)); // let the stub fully exit before the next test runs
   });
 });
 

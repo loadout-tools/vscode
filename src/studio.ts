@@ -117,3 +117,31 @@ export function openStudio(
     });
   });
 }
+
+/**
+ * Test-only: force the next `openStudio` call to spawn for real instead of
+ * silently reusing a live studio left over from a previous test (see the
+ * reuse branch above). Waits for the child's real `exit` event before
+ * resolving, rather than a fixed delay, so callers don't have to race process
+ * teardown to get a deterministic reset.
+ *
+ * Clears `current` itself once the child has exited, rather than relying on
+ * the `exit` listener `openStudio` registers at spawn time to do it first.
+ * That listener does run first today (Node fires `exit` listeners in
+ * registration order, and it was added before this function's), but the
+ * whole point of this reset is to not depend on incidental ordering.
+ */
+export function resetForTests(): Promise<void> {
+  if (!current || current.child.exitCode !== null) {
+    current = null;
+    return Promise.resolve();
+  }
+  const child = current.child;
+  return new Promise((resolve) => {
+    child.once('exit', () => {
+      current = null;
+      resolve();
+    });
+    child.kill();
+  });
+}
