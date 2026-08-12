@@ -18,6 +18,12 @@ export const window = {
     dispose: () => {},
   }),
   registerTreeDataProvider: (_id: string, _provider: unknown) => ({ dispose: () => {} }),
+  terminals: [] as { name: string; sent: string[] }[],
+  createTerminal: (name: string) => {
+    const t = { name, sent: [] as string[], show: () => {}, dispose: () => {}, sendText: (s: string) => { t.sent.push(s); } };
+    window.terminals.push(t);
+    return t;
+  },
 };
 export const workspace = {
   workspaceFolders: [] as { uri: { fsPath: string }; name?: string }[],
