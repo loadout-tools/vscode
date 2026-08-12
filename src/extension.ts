@@ -35,11 +35,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
    */
   const maybeOfferCliUpdate = async () => {
     if (!bin) return;
+    // The first run belongs to onboarding: a brand-new user who hasn't set up yet
+    // shouldn't see this alongside "Set up Loadout?", and shouldn't have their
+    // once-per-version notice spent while they're busy with that instead. Defer
+    // to a later, already-set-up activation.
+    if (consentState(context.globalState) !== 'ambient') return;
     const expected = (context.extension?.packageJSON as { loadout?: { cliVersion?: string } } | undefined)
       ?.loadout?.cliVersion;
     if (!expected) return;
     const key = `${CLI_UPDATE_NOTICE_KEY}.${expected}`;
     if (context.globalState.get(key) === true) return;
+    // The bundled binary is ours to fix with an extension update, not the user's
+    // to update — skip the probe rather than spawn it only to have
+    // cliUpdateDecision discard the result.
+    if (bin.source !== 'path') return;
 
     const probe = await runLoad(bin.path, ['--version'], undefined, storage);
     if (probe.code !== 0) return;
