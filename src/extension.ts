@@ -1,19 +1,21 @@
 import * as vscode from 'vscode';
 import * as fs from 'node:fs';
 import { resolveLoad } from './binary';
-import { killAll, reapOrphans } from './exec';
+import { killAll, reapOrphans, runLoad } from './exec';
 import { agentForAppName, overlayPath, planFolderRefresh, refreshFolder } from './refresh';
 import { consentState, hasConfig } from './onboarding';
 import { platformAction, WSL_EXTENSION_ID, WSL_REOPEN_COMMAND } from './platform';
 import { externalStudioUrl, openStudio } from './studio';
 import { updateStatus, type StatusState } from './status';
 import { provider as treeProvider, refreshTree, setAgent as setTreeAgent, setAmbient as setTreeAmbient } from './tree';
+import { cliUpdateDecision, readGlobalConfigText } from './cliUpdate';
 
 const out = vscode.window.createOutputChannel('Loadout');
 let item: vscode.StatusBarItem;
 
 const SETUP_DISMISSED_KEY = 'loadout.setupDismissed';
 const UNSUPPORTED_NOTICE_KEY = 'loadout.unsupportedNoticeShown';
+const CLI_UPDATE_NOTICE_KEY = 'loadout.cliUpdateNoticeShown';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const storage = context.globalStorageUri.fsPath;
@@ -24,6 +26,45 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const bin = resolveLoad(context.extensionUri.fsPath);
   const agent = agentForAppName(vscode.env.appName);
   setTreeAgent(agent);
+
+  /**
+   * A CLI on PATH is never replaced by this extension, so a user can install an
+   * extension update and still be served an old studio by their own `load`.
+   * Tell them once per expected version. Everything here is best-effort: any
+   * failure means saying nothing, and activation never waits on it.
+   */
+  const maybeOfferCliUpdate = async () => {
+    if (!bin) return;
+    const expected = (context.extension?.packageJSON as { loadout?: { cliVersion?: string } } | undefined)
+      ?.loadout?.cliVersion;
+    if (!expected) return;
+    const key = `${CLI_UPDATE_NOTICE_KEY}.${expected}`;
+    if (context.globalState.get(key) === true) return;
+
+    const probe = await runLoad(bin.path, ['--version'], undefined, storage);
+    if (probe.code !== 0) return;
+    const decision = cliUpdateDecision({
+      source: bin.source,
+      versionOutput: probe.stdout,
+      expected,
+      env: process.env,
+      configText: readGlobalConfigText(),
+    });
+    if (decision.kind !== 'offer') return;
+
+    // Mark before asking: the offer fires once per expected version whether the
+    // user updates, declines, or ignores it.
+    await context.globalState.update(key, true);
+    const choice = await vscode.window.showInformationMessage(
+      `Loadout expects load ${decision.expected}, but ${decision.installed} is installed. Studio's interface comes from the CLI, so some fixes arrive only when it updates.`,
+      'Update',
+      'Not now'
+    );
+    if (choice !== 'Update') return;
+    const term = vscode.window.createTerminal('Loadout update');
+    term.show();
+    term.sendText('load update');
+  };
 
   /** Keeps the `loadout.ambient` context key (drives `viewsWelcome`) and the tree's
    *  own copy of that flag in sync with every status-bar update, then re-queries
@@ -233,6 +274,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
     return;
   }
+
+  void maybeOfferCliUpdate().catch((e) => out.appendLine(`cli update check: ${String(e)}`));
 
   if (consentState(context.globalState) === 'needs-setup') {
     if (context.globalState.get(SETUP_DISMISSED_KEY) === true) {
