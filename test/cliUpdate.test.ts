@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseVersion, isOlder, updateCheckDisabled, cliUpdateDecision } from '../src/cliUpdate';
+import { parseVersion, isOlder, updateCheckDisabled, cliUpdateDecision, updateOfferMessage } from '../src/cliUpdate';
 
 describe('parseVersion', () => {
   it('reads the version out of `load --version` output', () => {
@@ -77,5 +77,16 @@ describe('cliUpdateDecision', () => {
   it('is quiet when the user opted out', () => {
     expect(cliUpdateDecision({ ...base, env: { LOADOUT_NO_UPDATE_CHECK: '1' } })).toEqual({ kind: 'quiet' });
     expect(cliUpdateDecision({ ...base, configText: '[update]\ncheck = "off"\n' })).toEqual({ kind: 'quiet' });
+  });
+});
+
+describe('updateOfferMessage', () => {
+  it('names both versions, worded as agreed with the repo owner', () => {
+    const message = updateOfferMessage({ kind: 'offer', installed: '0.26.0', expected: '0.27.0' });
+    expect(message).toContain('0.26.0');
+    expect(message).toContain('0.27.0');
+    expect(message).toBe(
+      "Loadout's command-line tool updates separately from this extension, and yours is behind — 0.26.0 installed, 0.27.0 expected."
+    );
   });
 });
