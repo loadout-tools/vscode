@@ -95,3 +95,13 @@ export function cliUpdateDecision(input: CliUpdateInput): UpdateDecision {
     expected: `${expected.major}.${expected.minor}.${expected.patch}`,
   };
 }
+
+/**
+ * The notification text for an `offer` decision. A VS Code user has no reason
+ * to know Loadout even has a separate command-line tool with its own release
+ * cycle — that's the whole thing this message needs to explain, not just the
+ * two version numbers.
+ */
+export function updateOfferMessage(decision: Extract<UpdateDecision, { kind: 'offer' }>): string {
+  return `Loadout's command-line tool updates separately from this extension, and yours is behind — ${decision.installed} installed, ${decision.expected} expected.`;
+}

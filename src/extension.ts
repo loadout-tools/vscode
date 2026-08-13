@@ -8,7 +8,7 @@ import { platformAction, WSL_EXTENSION_ID, WSL_REOPEN_COMMAND } from './platform
 import { externalStudioUrl, openStudio } from './studio';
 import { updateStatus, type StatusState } from './status';
 import { provider as treeProvider, refreshTree, setAgent as setTreeAgent, setAmbient as setTreeAmbient } from './tree';
-import { cliUpdateDecision, readGlobalConfigText } from './cliUpdate';
+import { cliUpdateDecision, readGlobalConfigText, updateOfferMessage } from './cliUpdate';
 
 const out = vscode.window.createOutputChannel('Loadout');
 let item: vscode.StatusBarItem;
@@ -61,14 +61,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     });
     if (decision.kind !== 'offer') return;
 
-    // Mark before asking: the offer fires once per expected version whether the
-    // user updates, declines, or ignores it.
-    await context.globalState.update(key, true);
-    const choice = await vscode.window.showInformationMessage(
-      `Loadout expects load ${decision.expected}, but ${decision.installed} is installed. Studio's interface comes from the CLI, so some fixes arrive only when it updates.`,
-      'Update',
-      'Not now'
-    );
+    const choice = await vscode.window.showInformationMessage(updateOfferMessage(decision), 'Update', 'Not now');
+    // Mark only once answered: showInformationMessage resolves to undefined when
+    // the notification is dismissed without a click, and a dismissal is not the
+    // same as having seen and declined it — someone who never noticed it
+    // shouldn't have their once-per-version offer spent. Both buttons count as
+    // an answer; a plain dismissal means it asks again on the next window.
+    if (choice !== undefined) {
+      await context.globalState.update(key, true);
+    }
     if (choice !== 'Update') return;
     const term = vscode.window.createTerminal('Loadout update');
     term.show();
